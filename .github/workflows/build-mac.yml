@@ -20,24 +20,20 @@ jobs:
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install cmake rust libuv openssl || true
           
-          # 1. 强行源码安装 cheadergen
+          # 1. 安装 cheadergen 包装脚本
           pip3 install git+https://github.com/RedisLabsModules/cheadergen.git --break-system-packages || true
-          
-          # 2. 创建系统可执行 wrapper 脚本
           sudo mkdir -p /usr/local/bin
           echo '#!/usr/bin/env bash' | sudo tee /usr/local/bin/cheadergen
           echo 'python3 -m cheadergen "$@"' | sudo tee -a /usr/local/bin/cheadergen
           sudo chmod +x /usr/local/bin/cheadergen
 
-          # 3. 设置环境变量（关闭严苛的警告视作错误，解除编译阻断）
+          # 2. 设置环境变量
           export PATH="/usr/local/bin:$PATH"
           export CHEADERGEN_EXECUTABLE="/usr/local/bin/cheadergen"
-          export CFLAGS="-w"
-          export CXXFLAGS="-w"
           
-          # 4. 拉取子模块并启动编译
+          # 3. 开启详细单线程编译
           git submodule update --init --recursive
-          make build IGNORE_MISSING_DEPS=1 CMAKE_ARGS="-DCHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen -DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w"
+          make build IGNORE_MISSING_DEPS=1 VERBOSE=1 -j1 CMAKE_ARGS="-DCHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
