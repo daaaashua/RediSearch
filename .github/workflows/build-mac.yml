@@ -1,0 +1,34 @@
+name: Build Mac RediSearch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install cmake rust
+          pip3 install cheadergen setuptools
+
+      - name: Build RediSearch
+        run: |
+          make build IGNORE_MISSING_DEPS=1
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: redisearch-macos-dylib
+          path: |
+            bin/darwin-*/search/redisearch.dylib
+            build/redisearch.dylib
+            bin/darwin-*/redisearch.dylib
