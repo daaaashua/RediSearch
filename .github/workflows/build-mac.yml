@@ -15,37 +15,27 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install dependencies and Build
+      - name: Build RediSearch
         run: |
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install cmake rust || true
           
-          # 1. 确保子模块全部拉取下来（cheadergen 通常就在里面）
+          # 1. 强行源码安装 cheadergen
+          pip3 install git+https://github.com/RedisLabsModules/cheadergen.git --break-system-packages || true
+          
+          # 2. 创建系统可执行 wrapper 脚本
+          sudo mkdir -p /usr/local/bin
+          echo '#!/usr/bin/env bash' | sudo tee /usr/local/bin/cheadergen
+          echo 'python3 -m cheadergen "$@"' | sudo tee -a /usr/local/bin/cheadergen
+          sudo chmod +x /usr/local/bin/cheadergen
+
+          # 3. 设置环境变量
+          export PATH="/usr/local/bin:$PATH"
+          export CHEADERGEN_EXECUTABLE="/usr/local/bin/cheadergen"
+          
+          # 4. 拉取子模块并编译（显式将变量覆盖给 CMake）
           git submodule update --init --recursive
-          
-          # 2. 如果仓库里自带了 cheadergen 源码目录，直接本地安装
-          if [ -d "deps/cheadergen" ]; then
-            pip3 install ./deps/cheadergen --break-system-packages || true
-          fi
-          
-          # 3. 强行把 python 的 bin 目录和系统 bin 目录打通到 PATH
-          PYTHON_BIN_DIR=$(python3 -m site --user-base)/bin
-          export PATH="$PYTHON_BIN_DIR:/usr/local/bin:$HOME/.local/bin:$PATH"
-          
-          # 4. 全局搜一下 cheadergen 在哪，并软链接到 /usr/local/bin/cheadergen
-          CG_PATH=$(find . -name "cheadergen" -type f 2>/dev/null | head -n 1)
-          if [ -n "$CG_PATH" ]; then
-            chmod +x "$CG_PATH"
-            sudo ln -sf "$(pwd)/$CG_PATH" /usr/local/bin/cheadergen
-          else
-            # 如果本地找不到，尝试强制全局 pip 安装
-            pip3 install git+https://github.com/RedisLabsModules/cheadergen.git --break-system-packages || true
-          fi
-          
-          which cheadergen || echo "cheadergen still missing!"
-          
-          # 5. 在同一个步骤内直接执行编译
-          make build IGNORE_MISSING_DEPS=1
+          make build IGNORE_MISSING_DEPS=1 CMAKE_ARGS="-DCHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
