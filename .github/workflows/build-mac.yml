@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-14  # 明确指定 Apple Silicon (M系列芯片) 的 Mac 节点
     permissions:
       contents: read
 
@@ -17,18 +17,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install cmake rust
-          pip3 install cheadergen setuptools
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          brew install cmake rust || true
+          pip3 install cheadergen setuptools --break-system-packages || true
 
       - name: Build RediSearch
         run: |
+          # 自动补全子模块并强制编译
+          git submodule update --init --recursive
           make build IGNORE_MISSING_DEPS=1
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
+        if: always() # 即使之前步骤有小报错，只要生成了dylib就尝试上传
         with:
           name: redisearch-macos-dylib
           path: |
             bin/darwin-*/search/redisearch.dylib
             build/redisearch.dylib
             bin/darwin-*/redisearch.dylib
+            bin/*/redisearch.dylib
