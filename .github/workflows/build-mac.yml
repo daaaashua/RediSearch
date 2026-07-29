@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-14  # 明确指定 Apple Silicon (M系列芯片) 的 Mac 节点
+    runs-on: macos-14
     permissions:
       contents: read
 
@@ -19,21 +19,26 @@ jobs:
         run: |
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install cmake rust || true
+          pip3 install cheadergen setuptools --break-system-packages --user || true
           pip3 install cheadergen setuptools --break-system-packages || true
 
       - name: Build RediSearch
         run: |
-          # 自动补全子模块并强制编译
+          # 关键点：将 Python 和 cargo 的 bin 目录显式加入 PATH，让 CMake 能找到 cheadergen
+          export PATH="$HOME/.local/bin:$(python3 -m site --user-base)/bin:$PATH"
+          which cheadergen || true
+          
           git submodule update --init --recursive
           make build IGNORE_MISSING_DEPS=1
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
-        if: always() # 即使之前步骤有小报错，只要生成了dylib就尝试上传
+        if: always()
         with:
           name: redisearch-macos-dylib
           path: |
+            bin/macos-*/search/redisearch.dylib
             bin/darwin-*/search/redisearch.dylib
             build/redisearch.dylib
-            bin/darwin-*/redisearch.dylib
             bin/*/redisearch.dylib
+            bin/macos-aarch64-release/search-community/redisearch.dylib
