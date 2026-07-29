@@ -19,18 +19,25 @@ jobs:
         run: |
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install cmake rust || true
-          # 强行把 cheadergen 软链接到 /usr/local/bin，确保 CMake 100% 能全局找到
-          pip3 install cheadergen setuptools --break-system-packages
+          
+          # 从 GitHub 源码直接安装 Redis 官方的 cheadergen
+          pip3 install setuptools wheel --break-system-packages || true
+          pip3 install git+https://github.com/RedisLabsModules/cheadergen.index.git@master --break-system-packages || \
+          pip3 install git+https://github.com/RedisLabsModules/cheadergen.git@master --break-system-packages || true
+
+          # 确保全局可执行
           CHEADERGEN_PATH=$(which cheadergen || find /Users/runner -name cheadergen 2>/dev/null | head -n 1)
           echo "Found cheadergen at: $CHEADERGEN_PATH"
-          sudo mkdir -p /usr/local/bin
-          sudo ln -sf "$CHEADERGEN_PATH" /usr/local/bin/cheadergen
+          if [ -n "$CHEADERGEN_PATH" ]; then
+            sudo mkdir -p /usr/local/bin
+            sudo ln -sf "$CHEADERGEN_PATH" /usr/local/bin/cheadergen
+          fi
 
       - name: Build RediSearch
         run: |
+          export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"
           git submodule update --init --recursive
-          # 显式把 CHEADERGEN 变量直接塞给 CMake
-          CHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen make build IGNORE_MISSING_DEPS=1
+          make build IGNORE_MISSING_DEPS=1
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
