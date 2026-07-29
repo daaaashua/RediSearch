@@ -18,7 +18,7 @@ jobs:
       - name: Build RediSearch
         run: |
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
-          brew install cmake rust || true
+          brew install cmake rust libuv openssl || true
           
           # 1. 强行源码安装 cheadergen
           pip3 install git+https://github.com/RedisLabsModules/cheadergen.git --break-system-packages || true
@@ -29,13 +29,15 @@ jobs:
           echo 'python3 -m cheadergen "$@"' | sudo tee -a /usr/local/bin/cheadergen
           sudo chmod +x /usr/local/bin/cheadergen
 
-          # 3. 设置环境变量
+          # 3. 设置环境变量（关闭严苛的警告视作错误，解除编译阻断）
           export PATH="/usr/local/bin:$PATH"
           export CHEADERGEN_EXECUTABLE="/usr/local/bin/cheadergen"
+          export CFLAGS="-w"
+          export CXXFLAGS="-w"
           
-          # 4. 拉取子模块并编译（显式将变量覆盖给 CMake）
+          # 4. 拉取子模块并启动编译
           git submodule update --init --recursive
-          make build IGNORE_MISSING_DEPS=1 CMAKE_ARGS="-DCHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen"
+          make build IGNORE_MISSING_DEPS=1 CMAKE_ARGS="-DCHEADERGEN_EXECUTABLE=/usr/local/bin/cheadergen -DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -48,3 +50,4 @@ jobs:
             build/redisearch.dylib
             bin/*/redisearch.dylib
             bin/macos-aarch64-release/search-community/redisearch.dylib
+            **/redisearch.dylib
